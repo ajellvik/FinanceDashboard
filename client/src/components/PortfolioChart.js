@@ -1,15 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
-  LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
   Area, AreaChart
 } from 'recharts';
-import axios from 'axios';
 import { Calendar, TrendingUp, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
 import { format, subMonths, subDays, startOfYear } from 'date-fns';
 import { sv } from 'date-fns/locale';
-
-const API_URL = 'http://localhost:5001/api';
 
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#8DD1E1'];
 
@@ -23,6 +20,7 @@ const PortfolioChart = ({ holdings, transactions, prices }) => {
     if (chartType === 'performance') {
       fetchPerformanceData();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chartType, period]);
 
   const fetchPerformanceData = async () => {

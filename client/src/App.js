@@ -41,11 +41,12 @@ function App() {
   useEffect(() => {
     if (isAuthenticated) {
       fetchData();
-      const interval = setInterval(fetchPrices, 30000); // Uppdatera priser var 30:e sekund
+      const interval = setInterval(() => fetchPrices(), 30000); // Uppdatera priser var 30:e sekund
       // Save portfolio history once a day
       savePortfolioHistory();
       return () => clearInterval(interval);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
   const checkAuthStatus = async () => {
