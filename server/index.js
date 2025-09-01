@@ -4,14 +4,28 @@ const sqlite3 = require('sqlite3').verbose();
 const axios = require('axios');
 const path = require('path');
 const yahooFinance = require('yahoo-finance2').default;
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser');
 require('dotenv').config();
 
 const app = express();
 const PORT = process.env.PORT || 5001;
 
+// Secret for JWT
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+
+// Hardcoded password (hashed)
+const PASSWORD = 'Fika175';
+const PASSWORD_HASH = bcrypt.hashSync(PASSWORD, 10);
+
 // Middleware
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 // Initialize SQLite database
 const db = new sqlite3.Database('./portfolio.db');
@@ -57,12 +71,77 @@ db.serialize(() => {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // Portfolio värde historik tabell
+  db.run(`
+    CREATE TABLE IF NOT EXISTS portfolio_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      total_value REAL NOT NULL,
+      total_cost REAL NOT NULL,
+      profit_loss REAL NOT NULL,
+      date DATE NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(date)
+    )
+  `);
+});
+
+// Middleware to verify JWT token
+const verifyToken = (req, res, next) => {
+  const token = req.cookies.token || req.headers['authorization'];
+  
+  if (!token) {
+    return res.status(401).json({ error: 'Ingen åtkomst - logga in först' });
+  }
+  
+  try {
+    const decoded = jwt.verify(token.replace('Bearer ', ''), JWT_SECRET);
+    req.userId = decoded.userId;
+    next();
+  } catch (error) {
+    return res.status(401).json({ error: 'Ogiltig token' });
+  }
+};
+
+// Login endpoint
+app.post('/api/login', (req, res) => {
+  const { password } = req.body;
+  
+  if (!password) {
+    return res.status(400).json({ error: 'Lösenord krävs' });
+  }
+  
+  if (!bcrypt.compareSync(password, PASSWORD_HASH)) {
+    return res.status(401).json({ error: 'Fel lösenord' });
+  }
+  
+  const token = jwt.sign({ userId: 'user' }, JWT_SECRET, { expiresIn: '7d' });
+  
+  res.cookie('token', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
+  });
+  
+  res.json({ success: true, token });
+});
+
+// Logout endpoint
+app.post('/api/logout', (req, res) => {
+  res.clearCookie('token');
+  res.json({ success: true });
+});
+
+// Check auth status
+app.get('/api/auth/status', verifyToken, (req, res) => {
+  res.json({ authenticated: true });
 });
 
 // API Routes
 
-// Hämta alla transaktioner
-app.get('/api/transactions', (req, res) => {
+// Hämta alla transaktioner (protected)
+app.get('/api/transactions', verifyToken, (req, res) => {
   db.all('SELECT * FROM transactions ORDER BY transaction_date DESC', (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -72,8 +151,8 @@ app.get('/api/transactions', (req, res) => {
   });
 });
 
-// Lägg till ny transaktion
-app.post('/api/transactions', (req, res) => {
+// Lägg till ny transaktion (protected)
+app.post('/api/transactions', verifyToken, (req, res) => {
   const { ticker, company_name, type, quantity, price, currency, transaction_date } = req.body;
   
   db.run(
@@ -94,8 +173,8 @@ app.post('/api/transactions', (req, res) => {
   );
 });
 
-// Ta bort transaktion
-app.delete('/api/transactions/:id', (req, res) => {
+// Ta bort transaktion (protected)
+app.delete('/api/transactions/:id', verifyToken, (req, res) => {
   const { id } = req.params;
   
   db.get('SELECT ticker FROM transactions WHERE id = ?', [id], (err, row) => {
@@ -123,8 +202,8 @@ app.delete('/api/transactions/:id', (req, res) => {
   });
 });
 
-// Hämta alla innehav
-app.get('/api/holdings', (req, res) => {
+// Hämta alla innehav (protected)
+app.get('/api/holdings', verifyToken, (req, res) => {
   db.all('SELECT * FROM holdings ORDER BY ticker', (err, rows) => {
     if (err) {
       res.status(500).json({ error: err.message });
@@ -134,8 +213,8 @@ app.get('/api/holdings', (req, res) => {
   });
 });
 
-// Hämta aktuella priser från Yahoo Finance
-app.get('/api/prices/:tickers', async (req, res) => {
+// Hämta aktuella priser från Yahoo Finance (protected)
+app.get('/api/prices/:tickers', verifyToken, async (req, res) => {
   const tickers = req.params.tickers.split(',');
   const prices = {};
   
@@ -257,6 +336,72 @@ app.get('/api/history/:ticker', async (req, res) => {
   }
   
   res.json(history);
+});
+
+// Spara portfolio historik
+app.post('/api/portfolio-history/save', verifyToken, async (req, res) => {
+  try {
+    // Hämta alla innehav
+    db.all('SELECT * FROM holdings', async (err, holdings) => {
+      if (err) {
+        return res.status(500).json({ error: err.message });
+      }
+      
+      if (holdings.length === 0) {
+        return res.json({ message: 'Inga innehav att spara' });
+      }
+      
+      // Beräkna totalt värde och kostnad
+      let totalValue = 0;
+      let totalCost = 0;
+      
+      for (const holding of holdings) {
+        const currentPrice = holding.average_price; // Use real price in production
+        totalValue += holding.quantity * currentPrice;
+        totalCost += holding.quantity * holding.average_price;
+      }
+      
+      const profitLoss = totalValue - totalCost;
+      const today = new Date().toISOString().split('T')[0];
+      
+      // Spara eller uppdatera dagens värde
+      db.run(
+        `INSERT OR REPLACE INTO portfolio_history (total_value, total_cost, profit_loss, date)
+         VALUES (?, ?, ?, ?)`,
+        [totalValue, totalCost, profitLoss, today],
+        function(err) {
+          if (err) {
+            return res.status(500).json({ error: err.message });
+          }
+          res.json({ 
+            message: 'Portfolio historik sparad',
+            data: { totalValue, totalCost, profitLoss, date: today }
+          });
+        }
+      );
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Kunde inte spara portfolio historik' });
+  }
+});
+
+// Hämta portfolio historik
+app.get('/api/portfolio-history', verifyToken, (req, res) => {
+  const { days = 30 } = req.query;
+  
+  const query = `
+    SELECT * FROM portfolio_history 
+    WHERE date >= date('now', '-${days} days')
+    ORDER BY date DESC
+  `;
+  
+  db.all(query, (err, rows) => {
+    if (err) {
+      res.status(500).json({ error: err.message });
+      return;
+    }
+    res.json(rows);
+  });
 });
 
 // Hämta valutakurser

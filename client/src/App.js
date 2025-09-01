@@ -1,15 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
+import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import TransactionForm from './components/TransactionForm';
 import TransactionList from './components/TransactionList';
 import PortfolioChart from './components/PortfolioChart';
-import { TrendingUp, Plus, List, PieChart, BarChart3 } from 'lucide-react';
+import { TrendingUp, Plus, List, PieChart, BarChart3, LogOut } from 'lucide-react';
 
 const API_URL = 'http://localhost:5001/api';
 
+// Configure axios defaults
+axios.defaults.withCredentials = true;
+
+// Add request interceptor to include token
+axios.interceptors.request.use(
+  config => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      config.headers['Authorization'] = `Bearer ${token}`;
+    }
+    return config;
+  },
+  error => Promise.reject(error)
+);
+
 function App() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [checkingAuth, setCheckingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState('översikt');
   const [holdings, setHoldings] = useState([]);
   const [transactions, setTransactions] = useState([]);
@@ -17,10 +35,57 @@ function App() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchData();
-    const interval = setInterval(fetchPrices, 30000); // Uppdatera priser var 30:e sekund
-    return () => clearInterval(interval);
+    checkAuthStatus();
   }, []);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      fetchData();
+      const interval = setInterval(fetchPrices, 30000); // Uppdatera priser var 30:e sekund
+      // Save portfolio history once a day
+      savePortfolioHistory();
+      return () => clearInterval(interval);
+    }
+  }, [isAuthenticated]);
+
+  const checkAuthStatus = async () => {
+    try {
+      const response = await axios.get(`${API_URL}/auth/status`);
+      if (response.data.authenticated) {
+        setIsAuthenticated(true);
+      }
+    } catch (error) {
+      setIsAuthenticated(false);
+    } finally {
+      setCheckingAuth(false);
+    }
+  };
+
+  const handleLoginSuccess = () => {
+    setIsAuthenticated(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      await axios.post(`${API_URL}/logout`);
+      localStorage.removeItem('token');
+      setIsAuthenticated(false);
+      setHoldings([]);
+      setTransactions([]);
+      setPrices({});
+    } catch (error) {
+      console.error('Fel vid utloggning:', error);
+    }
+  };
+
+  const savePortfolioHistory = async () => {
+    try {
+      await axios.post(`${API_URL}/portfolio-history/save`);
+      console.log('Portfolio historik sparad');
+    } catch (error) {
+      console.error('Fel vid sparande av portfolio historik:', error);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -37,6 +102,9 @@ function App() {
       setLoading(false);
     } catch (error) {
       console.error('Fel vid hämtning av data:', error);
+      if (error.response?.status === 401) {
+        setIsAuthenticated(false);
+      }
       setLoading(false);
     }
   };
@@ -65,6 +133,22 @@ function App() {
       console.error('Fel vid borttagning av transaktion:', error);
     }
   };
+
+  if (checkingAuth) {
+    return (
+      <div className="App">
+        <div className="loading">Kontrollerar autentisering...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="App">
+        <Login onLoginSuccess={handleLoginSuccess} />
+      </div>
+    );
+  }
 
   return (
     <div className="App">
@@ -104,6 +188,14 @@ function App() {
               Diagram
             </button>
           </nav>
+          <button 
+            className="logout-btn"
+            onClick={handleLogout}
+            title="Logga ut"
+          >
+            <LogOut size={18} />
+            Logga ut
+          </button>
         </div>
       </header>
 
