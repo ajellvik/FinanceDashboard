@@ -1,10 +1,5 @@
 {
   "buildCommand": "cd client && npm install && CI=false npm run build",
   "outputDirectory": "client/build",
-  "framework": null,
-  "functions": {
-    "api/**/*.js": {
-      "runtime": "@vercel/node@3.0.7"
-    }
-  }
+  "framework": null
 }
