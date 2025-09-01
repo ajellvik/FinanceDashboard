@@ -807,6 +807,72 @@ body {
   font-size: 0.85rem;
 }
 
+/* Demo Mode Styles */
+.demo-mode-section {
+  margin-top: 2rem;
+  padding-top: 2rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.divider {
+  position: relative;
+  text-align: center;
+  margin: 1.5rem 0;
+}
+
+.divider::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: var(--border-color);
+}
+
+.divider span {
+  position: relative;
+  padding: 0 1rem;
+  background: var(--card-bg);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+}
+
+.demo-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: transparent;
+  color: var(--secondary-color);
+  border: 2px solid var(--secondary-color);
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.demo-button:hover {
+  background: var(--secondary-color);
+  color: white;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(0, 196, 159, 0.3);
+}
+
+.demo-note {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(0, 196, 159, 0.1);
+  border: 1px solid rgba(0, 196, 159, 0.3);
+  border-radius: 6px;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
 .logout-btn {
   display: flex;
   align-items: center;

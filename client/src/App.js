@@ -37,6 +37,7 @@ function App() {
   const [transactions, setTransactions] = useState([]);
   const [prices, setPrices] = useState({});
   const [loading, setLoading] = useState(true);
+  const [isDemoMode, setIsDemoMode] = useState(false);
 
   useEffect(() => {
     checkAuthStatus();
@@ -54,6 +55,15 @@ function App() {
   }, [isAuthenticated]);
 
   const checkAuthStatus = async () => {
+    // Check for demo mode first
+    if (localStorage.getItem('demoMode') === 'true') {
+      setIsDemoMode(true);
+      setIsAuthenticated(true);
+      setCheckingAuth(false);
+      loadDemoData();
+      return;
+    }
+
     try {
       const response = await axios.get(`${API_URL}/auth/status`);
       if (response.data.authenticated) {
@@ -67,14 +77,56 @@ function App() {
   };
 
   const handleLoginSuccess = () => {
+    if (localStorage.getItem('demoMode') === 'true') {
+      setIsDemoMode(true);
+      loadDemoData();
+    }
     setIsAuthenticated(true);
+  };
+
+  const loadDemoData = () => {
+    // Mock holdings data
+    const mockHoldings = [
+      { id: 1, ticker: 'AAPL', name: 'Apple Inc.', quantity: 50, average_price: 150 },
+      { id: 2, ticker: 'MSFT', name: 'Microsoft Corp.', quantity: 30, average_price: 280 },
+      { id: 3, ticker: 'GOOGL', name: 'Alphabet Inc.', quantity: 20, average_price: 2200 },
+      { id: 4, ticker: 'AMZN', name: 'Amazon.com Inc.', quantity: 25, average_price: 3100 },
+      { id: 5, ticker: 'TSLA', name: 'Tesla Inc.', quantity: 15, average_price: 650 }
+    ];
+
+    // Mock transactions data
+    const mockTransactions = [
+      { id: 1, ticker: 'AAPL', type: 'buy', quantity: 50, price: 150, date: '2024-01-15', total: 7500 },
+      { id: 2, ticker: 'MSFT', type: 'buy', quantity: 30, price: 280, date: '2024-02-20', total: 8400 },
+      { id: 3, ticker: 'GOOGL', type: 'buy', quantity: 20, price: 2200, date: '2024-03-10', total: 44000 },
+      { id: 4, ticker: 'AMZN', type: 'buy', quantity: 25, price: 3100, date: '2024-04-05', total: 77500 },
+      { id: 5, ticker: 'TSLA', type: 'buy', quantity: 15, price: 650, date: '2024-05-12', total: 9750 }
+    ];
+
+    // Mock prices data
+    const mockPrices = {
+      'AAPL': { price: 175, change: 2.5, changePercent: 1.45, current: 175 },
+      'MSFT': { price: 320, change: 5.2, changePercent: 1.65, current: 320 },
+      'GOOGL': { price: 2450, change: 25, changePercent: 1.03, current: 2450 },
+      'AMZN': { price: 3350, change: -15, changePercent: -0.45, current: 3350 },
+      'TSLA': { price: 720, change: 12, changePercent: 1.69, current: 720 }
+    };
+
+    setHoldings(mockHoldings);
+    setTransactions(mockTransactions);
+    setPrices(mockPrices);
+    setLoading(false);
   };
 
   const handleLogout = async () => {
     try {
-      await axios.post(`${API_URL}/logout`);
+      if (!isDemoMode) {
+        await axios.post(`${API_URL}/logout`);
+      }
       localStorage.removeItem('token');
+      localStorage.removeItem('demoMode');
       setIsAuthenticated(false);
+      setIsDemoMode(false);
       setHoldings([]);
       setTransactions([]);
       setPrices({});
@@ -93,6 +145,11 @@ function App() {
   };
 
   const fetchData = async () => {
+    if (isDemoMode) {
+      loadDemoData();
+      return;
+    }
+
     try {
       const [holdingsRes, transactionsRes] = await Promise.all([
         axios.get(`${API_URL}/holdings`),

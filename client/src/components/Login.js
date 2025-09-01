@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Lock, LogIn } from 'lucide-react';
+import { Lock, LogIn, Eye } from 'lucide-react';
 
 const Login = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
@@ -13,28 +13,26 @@ const Login = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post(
-        'http://localhost:5001/api/login',
-        { password },
-        { withCredentials: true }
-      );
-
-      if (response.data.success) {
-        // Store token in localStorage as backup
-        if (response.data.token) {
-          localStorage.setItem('token', response.data.token);
-        }
+      const response = await axios.post('http://localhost:5001/api/login', { password });
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token);
         onLoginSuccess();
       }
     } catch (error) {
       if (error.response?.status === 401) {
         setError('Fel lösenord. Försök igen.');
       } else {
-        setError('Ett fel uppstod. Försök igen senare.');
+        setError('Backend-server är inte tillgänglig. Använd Demo-läge istället.');
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDemoMode = () => {
+    localStorage.setItem('demoMode', 'true');
+    localStorage.setItem('token', 'demo-token');
+    onLoginSuccess();
   };
 
   return (
@@ -74,6 +72,24 @@ const Login = ({ onLoginSuccess }) => {
             {loading ? 'Loggar in...' : 'Logga in'}
           </button>
         </form>
+        
+        <div className="demo-mode-section">
+          <div className="divider">
+            <span>eller</span>
+          </div>
+          <button 
+            onClick={handleDemoMode}
+            className="demo-button"
+            type="button"
+          >
+            <Eye size={20} />
+            Demo-läge (utan backend)
+          </button>
+          <p className="demo-note">
+            Demo-läget visar gränssnittet med exempeldata. 
+            För full funktionalitet krävs en backend-server.
+          </p>
+        </div>
 
       </div>
     </div>
