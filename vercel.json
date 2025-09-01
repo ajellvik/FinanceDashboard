@@ -3,15 +3,8 @@
   "outputDirectory": "client/build",
   "framework": null,
   "functions": {
-    "api/*.js": {
-      "maxDuration": 10
-    },
     "api/**/*.js": {
-      "maxDuration": 10
+      "runtime": "@vercel/node@3.0.7"
     }
-  },
-  "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api/$1" },
-    { "source": "/(.*)", "destination": "/index.html" }
-  ]
+  }
 }
