@@ -13,16 +13,18 @@ const Login = ({ onLoginSuccess }) => {
     setLoading(true);
 
     try {
-      const response = await axios.post('http://localhost:5001/api/login', { password });
+      const apiUrl = process.env.NODE_ENV === 'production' ? '/api/login' : 'http://localhost:5001/api/login';
+      const response = await axios.post(apiUrl, { password });
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
+        localStorage.removeItem('demoMode');
         onLoginSuccess();
       }
     } catch (error) {
       if (error.response?.status === 401) {
         setError('Fel lösenord. Försök igen.');
       } else {
-        setError('Backend-server är inte tillgänglig. Använd Demo-läge istället.');
+        setError('Kunde inte ansluta till servern. Försök igen senare.');
       }
     } finally {
       setLoading(false);
