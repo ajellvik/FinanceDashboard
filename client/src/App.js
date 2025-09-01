@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import './App.css';
+import config from './config';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
 import EnhancedDashboard from './components/EnhancedDashboard';
@@ -10,7 +11,7 @@ import PortfolioChart from './components/PortfolioChart';
 import AdvancedCharts from './components/AdvancedCharts';
 import { TrendingUp, Plus, List, PieChart, BarChart3, LogOut, Layers } from 'lucide-react';
 
-const API_URL = 'http://localhost:5001/api';
+const API_URL = config.API_URL;
 
 // Configure axios defaults
 axios.defaults.withCredentials = true;
