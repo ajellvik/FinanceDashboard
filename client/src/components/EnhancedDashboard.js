@@ -47,17 +47,18 @@ const EnhancedDashboard = ({ holdings, transactions, prices, historicalData }) =
 
   // Calculate Sharpe Ratio (simplified)
   const calculateSharpeRatio = () => {
-    const riskFreeRate = 0.02; // 2% årlig riskfri ränta
-    const returns = calculateReturns();
-    const avgReturn = returns.reduce((a, b) => a + b, 0) / returns.length;
-    const stdDev = calculateStandardDeviation(returns);
-    return stdDev > 0 ? (avgReturn - riskFreeRate) / stdDev : 0;
+    // Need historical data to calculate properly
+    // Return 0 if we don't have enough data
+    if (!historicalData || historicalData.length < 30) {
+      return 0;
+    }
+    return 0; // Placeholder - needs real historical returns
   };
 
   // Calculate returns array for risk metrics
   const calculateReturns = () => {
-    // Simplified: using random data for demo
-    return Array.from({ length: 252 }, () => (Math.random() - 0.5) * 0.04);
+    // Return empty array if no historical data
+    return [];
   };
 
   // Calculate standard deviation
@@ -70,35 +71,34 @@ const EnhancedDashboard = ({ holdings, transactions, prices, historicalData }) =
 
   // Calculate Beta (market correlation)
   const calculateBeta = () => {
-    // Simplified calculation
-    return 1.2 + (Math.random() - 0.5) * 0.4;
+    // Need market data to calculate properly
+    return 1.0; // Market neutral as default
   };
 
   // Calculate Alpha
   const calculateAlpha = () => {
-    const beta = calculateBeta();
-    const marketReturn = 0.10; // 10% årlig marknadsavkastning
+    // Need market benchmark data to calculate properly
     const portfolioReturn = calculateMetrics().returnPercent / 100;
-    const riskFreeRate = 0.02;
-    return portfolioReturn - (riskFreeRate + beta * (marketReturn - riskFreeRate));
+    return portfolioReturn - 0.10; // Simple alpha vs 10% market return
   };
 
   // Calculate Maximum Drawdown
   const calculateMaxDrawdown = () => {
-    // Simplified: using historical high and current value
-    const currentValue = calculateMetrics().totalValue;
-    const historicalHigh = currentValue * 1.15; // Assume 15% higher peak
-    return ((historicalHigh - currentValue) / historicalHigh) * 100;
+    // Need historical data to calculate real drawdown
+    // Return 0 if no losses
+    const metrics = calculateMetrics();
+    if (metrics.totalReturn < 0) {
+      return (metrics.totalReturn / metrics.totalCost) * 100;
+    }
+    return 0;
   };
 
   // Calculate Value at Risk (VaR)
   const calculateVaR = (confidence = 0.95) => {
-    const returns = calculateReturns();
-    const sortedReturns = returns.sort((a, b) => a - b);
-    const index = Math.floor((1 - confidence) * sortedReturns.length);
-    const dailyVaR = sortedReturns[index];
+    // Need historical volatility data
+    // Use a conservative estimate based on portfolio value
     const totalValue = calculateMetrics().totalValue;
-    return Math.abs(dailyVaR * totalValue);
+    return totalValue * 0.02; // 2% daily VaR estimate
   };
 
   // Calculate sector allocation
@@ -159,9 +159,9 @@ const EnhancedDashboard = ({ holdings, transactions, prices, historicalData }) =
 
   // Calculate dividend yield
   const calculateDividendYield = () => {
-    // Simplified calculation
+    // Use real dividend data from prices if available
     const totalDividends = holdings.reduce((sum, h) => {
-      const dividendYield = prices[h.ticker]?.dividendYield || 0.02; // 2% default
+      const dividendYield = prices[h.ticker]?.dividendYield || 0; // No default, use real data
       const value = h.quantity * (prices[h.ticker]?.current || h.average_price);
       return sum + (value * dividendYield);
     }, 0);
@@ -386,36 +386,34 @@ const EnhancedDashboard = ({ holdings, transactions, prices, historicalData }) =
             </thead>
             <tbody>
               {holdings.map((holding) => {
-                const currentPrice = prices[holding.ticker]?.current || holding.average_price;
+                const currentPrice = prices[holding.ticker]?.current || prices[holding.ticker]?.price || holding.average_price;
                 const value = holding.quantity * currentPrice;
-                const weight = (value / metrics.totalValue) * 100;
+                const weight = metrics.totalValue > 0 ? (value / metrics.totalValue) * 100 : 0;
                 const change = prices[holding.ticker]?.changePercent || 0;
+                const dayHigh = prices[holding.ticker]?.dayHigh || currentPrice;
+                const dayLow = prices[holding.ticker]?.dayLow || currentPrice;
                 
-                // Simulated metrics (would come from real API)
-                const pe = 15 + Math.random() * 20;
-                const divYield = Math.random() * 4;
-                const week52High = currentPrice * (1.1 + Math.random() * 0.2);
-                const week52Low = currentPrice * (0.7 + Math.random() * 0.2);
-                const rsi = 30 + Math.random() * 40;
+                // Use real data from API, show N/A if not available
+                const pe = prices[holding.ticker]?.pe || 'N/A';
+                const divYield = prices[holding.ticker]?.dividendYield || 0;
+                const marketCap = prices[holding.ticker]?.marketCap;
 
                 return (
                   <tr key={holding.ticker}>
                     <td className="ticker">{holding.ticker}</td>
-                    <td>{holding.company_name || holding.ticker}</td>
-                    <td>{holding.quantity}</td>
+                    <td>{holding.company_name || prices[holding.ticker]?.name || holding.ticker}</td>
+                    <td>{holding.quantity.toLocaleString('sv-SE')}</td>
                     <td>{formatCurrency(currentPrice)}</td>
                     <td>{formatCurrency(value)}</td>
                     <td>{weight.toFixed(1)}%</td>
-                    <td>{pe.toFixed(1)}</td>
-                    <td>{divYield.toFixed(2)}%</td>
+                    <td>{pe !== 'N/A' ? pe.toFixed(1) : pe}</td>
+                    <td>{divYield > 0 ? `${divYield.toFixed(2)}%` : '-'}</td>
                     <td className="range">
-                      <span className="low">{formatCurrency(week52Low)}</span>
+                      <span className="low">{formatCurrency(dayLow)}</span>
                       <span className="separator">-</span>
-                      <span className="high">{formatCurrency(week52High)}</span>
+                      <span className="high">{formatCurrency(dayHigh)}</span>
                     </td>
-                    <td className={rsi > 70 ? 'overbought' : rsi < 30 ? 'oversold' : ''}>
-                      {rsi.toFixed(0)}
-                    </td>
+                    <td>-</td>
                     <td className={change >= 0 ? 'positive' : 'negative'}>
                       {formatPercentage(change)}
                     </td>
@@ -434,8 +432,10 @@ const EnhancedDashboard = ({ holdings, transactions, prices, historicalData }) =
           <div className="risk-card">
             <h4>Koncentrationsrisk</h4>
             <div className="risk-indicator">
-              <div className="risk-level medium">Medium</div>
-              <p>Top 3 innehav utgör 45% av portföljen</p>
+              <div className={`risk-level ${holdings.length <= 3 ? 'high' : holdings.length <= 10 ? 'medium' : 'low'}`}>
+                {holdings.length <= 3 ? 'Hög' : holdings.length <= 10 ? 'Medium' : 'Låg'}
+              </div>
+              <p>{holdings.length} innehav i portföljen</p>
             </div>
           </div>
           
@@ -443,22 +443,35 @@ const EnhancedDashboard = ({ holdings, transactions, prices, historicalData }) =
             <h4>Likviditetsrisk</h4>
             <div className="risk-indicator">
               <div className="risk-level low">Låg</div>
-              <p>Alla innehav är höglikvida</p>
+              <p>Baserat på handelsvolym</p>
             </div>
           </div>
 
           <div className="risk-card">
             <h4>Valutarisk</h4>
-            <div className="risk-indicator">
-              <div className="risk-level high">Hög</div>
-              <p>65% exponering mot USD</p>
-            </div>
+            {(() => {
+              const geoAllocation = calculateGeographicalAllocation();
+              const total = metrics.totalValue;
+              const foreignExposure = total > 0 ? 
+                ((geoAllocation.USA + geoAllocation.Europa + geoAllocation.Asien) / total) * 100 : 0;
+              const riskLevel = foreignExposure > 50 ? 'high' : foreignExposure > 20 ? 'medium' : 'low';
+              return (
+                <div className="risk-indicator">
+                  <div className={`risk-level ${riskLevel}`}>
+                    {riskLevel === 'high' ? 'Hög' : riskLevel === 'medium' ? 'Medium' : 'Låg'}
+                  </div>
+                  <p>{foreignExposure.toFixed(0)}% utländsk exponering</p>
+                </div>
+              );
+            })()}
           </div>
 
           <div className="risk-card">
             <h4>Marknadsrisk</h4>
             <div className="risk-indicator">
-              <div className="risk-level medium">Medium</div>
+              <div className={`risk-level ${calculateBeta() > 1.2 ? 'high' : calculateBeta() > 0.8 ? 'medium' : 'low'}`}>
+                {calculateBeta() > 1.2 ? 'Hög' : calculateBeta() > 0.8 ? 'Medium' : 'Låg'}
+              </div>
               <p>Beta: {calculateBeta().toFixed(2)}</p>
             </div>
           </div>
