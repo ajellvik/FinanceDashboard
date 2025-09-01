@@ -1,36 +1,86 @@
-const Database = require('better-sqlite3');
-const path = require('path');
+// Simple in-memory storage for Vercel deployment
+// In production, use a real database like PostgreSQL or MongoDB
 
-let db;
+let transactions = [];
+let transactionIdCounter = 1;
+
+const db = {
+  prepare: (query) => {
+    // Mock SQLite interface for compatibility
+    if (query.includes('SELECT * FROM transactions')) {
+      return {
+        all: () => transactions,
+        get: (id) => transactions.find(t => t.id === id)
+      };
+    }
+    
+    if (query.includes('INSERT INTO transactions')) {
+      return {
+        run: (ticker, type, quantity, price, date) => {
+          const newTransaction = {
+            id: transactionIdCounter++,
+            ticker,
+            type,
+            quantity,
+            price,
+            date,
+            created_at: new Date().toISOString()
+          };
+          transactions.push(newTransaction);
+          return { lastInsertRowid: newTransaction.id };
+        }
+      };
+    }
+    
+    if (query.includes('DELETE FROM transactions')) {
+      return {
+        run: (id) => {
+          transactions = transactions.filter(t => t.id !== parseInt(id));
+          return { changes: 1 };
+        }
+      };
+    }
+    
+    if (query.includes('GROUP BY ticker')) {
+      return {
+        all: () => {
+          const holdings = {};
+          transactions.forEach(t => {
+            if (!holdings[t.ticker]) {
+              holdings[t.ticker] = { 
+                ticker: t.ticker, 
+                quantity: 0, 
+                totalBuyPrice: 0,
+                buyCount: 0
+              };
+            }
+            if (t.type === 'buy') {
+              holdings[t.ticker].quantity += t.quantity;
+              holdings[t.ticker].totalBuyPrice += t.price * t.quantity;
+              holdings[t.ticker].buyCount += t.quantity;
+            } else {
+              holdings[t.ticker].quantity -= t.quantity;
+            }
+          });
+          
+          return Object.values(holdings)
+            .filter(h => h.quantity > 0)
+            .map(h => ({
+              ticker: h.ticker,
+              quantity: h.quantity,
+              average_price: h.buyCount > 0 ? h.totalBuyPrice / h.buyCount : 0
+            }));
+        }
+      };
+    }
+    
+    return { all: () => [], run: () => ({ lastInsertRowid: 0 }) };
+  },
+  
+  exec: () => {}
+};
 
 function getDb() {
-  if (!db) {
-    // For Vercel, we'll use a temporary database
-    // In production, you should use a cloud database like PostgreSQL
-    const dbPath = process.env.DATABASE_PATH || '/tmp/finance.db';
-    db = new Database(dbPath);
-    
-    // Create tables if they don't exist
-    db.exec(`
-      CREATE TABLE IF NOT EXISTS transactions (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        ticker TEXT NOT NULL,
-        type TEXT NOT NULL,
-        quantity INTEGER NOT NULL,
-        price REAL NOT NULL,
-        date TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-
-      CREATE TABLE IF NOT EXISTS portfolio_history (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        date TEXT NOT NULL,
-        total_value REAL NOT NULL,
-        holdings TEXT NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-      );
-    `);
-  }
   return db;
 }
 

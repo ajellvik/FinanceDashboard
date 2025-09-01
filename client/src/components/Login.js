@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-import { Lock, LogIn, Eye } from 'lucide-react';
+import { Lock, LogIn } from 'lucide-react';
 
 const Login = ({ onLoginSuccess }) => {
   const [password, setPassword] = useState('');
@@ -17,24 +17,18 @@ const Login = ({ onLoginSuccess }) => {
       const response = await axios.post(apiUrl, { password });
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
-        localStorage.removeItem('demoMode');
         onLoginSuccess();
       }
     } catch (error) {
       if (error.response?.status === 401) {
         setError('Fel lösenord. Försök igen.');
       } else {
-        setError('Kunde inte ansluta till servern. Försök igen senare.');
+        console.error('Login error:', error);
+        setError('Ett fel uppstod. Försök igen.');
       }
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleDemoMode = () => {
-    localStorage.setItem('demoMode', 'true');
-    localStorage.setItem('token', 'demo-token');
-    onLoginSuccess();
   };
 
   return (
@@ -74,25 +68,6 @@ const Login = ({ onLoginSuccess }) => {
             {loading ? 'Loggar in...' : 'Logga in'}
           </button>
         </form>
-        
-        <div className="demo-mode-section">
-          <div className="divider">
-            <span>eller</span>
-          </div>
-          <button 
-            onClick={handleDemoMode}
-            className="demo-button"
-            type="button"
-          >
-            <Eye size={20} />
-            Demo-läge (utan backend)
-          </button>
-          <p className="demo-note">
-            Demo-läget visar gränssnittet med exempeldata. 
-            För full funktionalitet krävs en backend-server.
-          </p>
-        </div>
-
       </div>
     </div>
   );
