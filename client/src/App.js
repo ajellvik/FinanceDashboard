@@ -3,10 +3,12 @@ import axios from 'axios';
 import './App.css';
 import Login from './components/Login';
 import Dashboard from './components/Dashboard';
+import EnhancedDashboard from './components/EnhancedDashboard';
 import TransactionForm from './components/TransactionForm';
 import TransactionList from './components/TransactionList';
 import PortfolioChart from './components/PortfolioChart';
-import { TrendingUp, Plus, List, PieChart, BarChart3, LogOut } from 'lucide-react';
+import AdvancedCharts from './components/AdvancedCharts';
+import { TrendingUp, Plus, List, PieChart, BarChart3, LogOut, Layers } from 'lucide-react';
 
 const API_URL = 'http://localhost:5001/api';
 
@@ -29,6 +31,7 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [checkingAuth, setCheckingAuth] = useState(true);
   const [activeTab, setActiveTab] = useState('översikt');
+  const [useEnhancedDashboard, setUseEnhancedDashboard] = useState(false);
   const [holdings, setHoldings] = useState([]);
   const [transactions, setTransactions] = useState([]);
   const [prices, setPrices] = useState({});
@@ -185,9 +188,16 @@ function App() {
               className={activeTab === 'diagram' ? 'active' : ''}
               onClick={() => setActiveTab('diagram')}
             >
-              <BarChart3 size={18} />
-              Diagram
-            </button>
+            <BarChart3 size={18} />
+            Diagram
+          </button>
+          <button 
+            className={activeTab === 'avancerad' ? 'active' : ''}
+            onClick={() => setActiveTab('avancerad')}
+          >
+            <Layers size={18} />
+            Avancerad
+          </button>
           </nav>
           <button 
             className="logout-btn"
@@ -206,11 +216,34 @@ function App() {
         ) : (
           <>
             {activeTab === 'översikt' && (
-              <Dashboard 
-                holdings={holdings} 
-                transactions={transactions}
-                prices={prices}
-              />
+              <>
+                <div className="dashboard-toggle">
+                  <label className="toggle-switch">
+                    <input 
+                      type="checkbox" 
+                      checked={useEnhancedDashboard}
+                      onChange={(e) => setUseEnhancedDashboard(e.target.checked)}
+                    />
+                    <span className="toggle-slider"></span>
+                    <span className="toggle-label">
+                      {useEnhancedDashboard ? 'Avancerad vy' : 'Standard vy'}
+                    </span>
+                  </label>
+                </div>
+                {useEnhancedDashboard ? (
+                  <EnhancedDashboard 
+                    holdings={holdings} 
+                    transactions={transactions}
+                    prices={prices}
+                  />
+                ) : (
+                  <Dashboard 
+                    holdings={holdings} 
+                    transactions={transactions}
+                    prices={prices}
+                  />
+                )}
+              </>
             )}
             {activeTab === 'transaktioner' && (
               <TransactionList 
@@ -223,6 +256,13 @@ function App() {
             )}
             {activeTab === 'diagram' && (
               <PortfolioChart 
+                holdings={holdings}
+                transactions={transactions}
+                prices={prices}
+              />
+            )}
+            {activeTab === 'avancerad' && (
+              <AdvancedCharts 
                 holdings={holdings}
                 transactions={transactions}
                 prices={prices}
