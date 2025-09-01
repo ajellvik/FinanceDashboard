@@ -75,9 +75,6 @@ const Login = ({ onLoginSuccess }) => {
           </button>
         </form>
 
-        <div className="login-footer">
-          <p className="hint">💡 Tips: Lösenordet börjar med "Fika"</p>
-        </div>
       </div>
     </div>
   );
